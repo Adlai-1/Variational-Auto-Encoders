@@ -1,9 +1,10 @@
 import tensorflow as tf
 import pandas as pd
 from sklearn.model_selection import train_test_split
+import matplotlib.pyplot as plt
 
 # Load the credit card fraud dataset
-# Make sure you provide the correct path to the CSV file.
+# And change the datatype from float64 -> float32
 dataset_path = './archive/creditcard.csv'
 Dataset = pd.read_csv(dataset_path).astype('float32')
 
@@ -11,26 +12,32 @@ Dataset = pd.read_csv(dataset_path).astype('float32')
 fraudData = Dataset[Dataset['Class'] == 1]
 nonfraudData = Dataset[Dataset['Class'] == 0]
 
-# Drop 'Class' column from both datasets
-fraudData = fraudData.drop(['Class'], axis=1)
+# Sample a total of 1000 non-fraud data
+# This will later be combined with the fraud data to form a test dataset
+NonFraudDataSample = nonfraudData.sample(600)
+
+# Drop 'Class' column from nonFraud datasets
 nonfraudData = nonfraudData.drop(['Class'], axis=1)
 
 # Split nonfraudData into training and testing datasets
-trainData, testData = train_test_split(nonfraudData, train_size=0.7, test_size=0.3, random_state=42)
-
-# Split testData into training and validation
-testData, valData = train_test_split(testData, train_size=0.5, test_size=0.5, random_state=42)
+trainData, valData = train_test_split(nonfraudData, train_size=0.7, test_size=0.3, random_state=42)
 
 # Normalize the data
 trainData = (trainData - trainData.mean()) / trainData.std()
 valData = (valData - valData.mean()) / valData.std()
-testData = (testData - testData.mean()) / testData.std()
+NonFraudDataSample = (NonFraudDataSample - NonFraudDataSample.mean()) / NonFraudDataSample.std()
+
+# Combine fraud dataset with testData to have testData made up of both fraud and nonFraud transactions
+testData = pd.concat([fraudData,NonFraudDataSample]).sample(frac=1).reset_index(drop=True)
+
+# Save testData for future model analysis
+testData.to_csv('./trainDataset', index=False)
 
 # Input shape for credit card transactions
 input_shape = trainData.shape[1:]
 
 # VAE Hyperparameters
-latent_dim = 4
+latent_dim = 3
 epochs = 30
 batch_size = 32
 
@@ -44,9 +51,9 @@ class VAE(tf.keras.Model):
 
     def build_encoder(self):
         encoder_input = tf.keras.layers.Input(shape=input_shape)
-        x = tf.keras.layers.Dense(128, activation='relu')(encoder_input)
+        x = tf.keras.layers.Dense(64, activation='relu')(encoder_input)
         x = tf.keras.layers.BatchNormalization()(x)
-        x = tf.keras.layers.Dense(64, activation='relu')(x)
+        x = tf.keras.layers.Dense(32, activation='relu')(x)
         x = tf.keras.layers.BatchNormalization()(x)
 
         # Encoder outputs
@@ -57,9 +64,9 @@ class VAE(tf.keras.Model):
 
     def build_decoder(self):
         decoder_input = tf.keras.layers.Input(shape=(self.latent_dim,))
-        x = tf.keras.layers.Dense(64, activation='relu')(decoder_input)
+        x = tf.keras.layers.Dense(32, activation='relu')(decoder_input)
         x = tf.keras.layers.BatchNormalization()(x)
-        x = tf.keras.layers.Dense(128, activation='relu')(x)
+        x = tf.keras.layers.Dense(64, activation='relu')(x)
         x = tf.keras.layers.BatchNormalization()(x)
 
         # Decoder output
@@ -83,20 +90,21 @@ def vae_loss(y_true, y_pred):
 
 # Instantiate and compile the VAE model
 vae = VAE(latent_dim)
-vae.compile(optimizer='adam', loss=vae_loss)
+vae.compile(optimizer=tf.keras.optimizers.Adam(
+    learning_rate=0.0001
+), loss=vae_loss)
 
 # training callbacks
 terminationProtocol = tf.keras.callbacks.EarlyStopping(
-    monitor='val_loss', mode='min', 
+    monitor='val_loss', 
     patience=15, 
     restore_best_weights=True,
-    min_delta=0.05
 )
 
 bestWeights = tf.keras.callbacks.ModelCheckpoint(
-    filepath='model3.tf',
-    verbose=0,
-    save_best_only=True,
+    filepath='modelWeights.h5',
+    verbose=1,
+    save_weights_only=True
 )
 
 # Train the VAE
