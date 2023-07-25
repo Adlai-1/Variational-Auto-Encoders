@@ -27,8 +27,8 @@ prior = tfd.MultivariateNormalDiag(
 
 encoder = tf.keras.Sequential([
     tf.keras.layers.InputLayer(input_shape=input_shape, name='encoder_input'),
-    tf.keras.layers.Dense(32, activation=tf.nn.leaky_relu),
-    tf.keras.layers.Dense(16, activation=tf.nn.leaky_relu),
+    tf.keras.layers.Dense(20, activation=tf.nn.leaky_relu),
+    tf.keras.layers.Dense(10, activation=tf.nn.leaky_relu),
     tf.keras.layers.Dense(8, activation=tf.nn.leaky_relu),
     tf.keras.layers.Dense(tfp.layers.MultivariateNormalTriL.params_size(latent_dim), activation=None),
     tfp.layers.MultivariateNormalTriL(latent_dim, 
@@ -38,8 +38,8 @@ encoder = tf.keras.Sequential([
 decoder = tf.keras.Sequential([
     tf.keras.layers.InputLayer(input_shape=[latent_dim]),
     tf.keras.layers.Dense(8, activation=tf.nn.leaky_relu),
-    tf.keras.layers.Dense(16, activation=tf.nn.leaky_relu),
-    tf.keras.layers.Dense(32, activation=tf.nn.leaky_relu),
+    tf.keras.layers.Dense(10, activation=tf.nn.leaky_relu),
+    tf.keras.layers.Dense(20, activation=tf.nn.leaky_relu),
     tf.keras.layers.Dense(tfp.layers.IndependentNormal.params_size(input_shape), activation="linear"), 
     tfp.layers.IndependentNormal(input_shape),
 ], name='decoder')
@@ -60,14 +60,22 @@ terminationProtocol = tf.keras.callbacks.EarlyStopping(
     restore_best_weights=True,
 )
 
+bestWeights = tf.keras.callbacks.ModelCheckpoint(
+    filepath='weight.keras',
+    verbose=1,
+    save_weights_only=True
+)
+
 # Train the VAE
 model = vae.fit(x=trainData, y=trainData,
         batch_size=batch_size, epochs=epochs, 
         validation_split=0.2, 
-        callbacks=[terminationProtocol])
+        callbacks=[terminationProtocol, bestWeights])
 
 
+# plot training history
 plt.plot(model.history['loss'], label="Training loss")
 plt.plot(model.history['val_loss'], label="Validation loss")
+plt.title("LatentD: 4")
 plt.legend(loc='upper right')
 plt.show()
