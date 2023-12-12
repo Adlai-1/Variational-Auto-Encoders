@@ -4,6 +4,6 @@ This a Variational Autoencoder for Anomaly detection (Credit Card Fraud). Its st
 # Tech Stack
 Python (Programming Langauge) and TensorFlow (Framework)
 
-# Datase
+# Database
 The dataset used for this project was solely from the Kaggle repository. The link below takes you straight to the repo:
 https://www.kaggle.com/datasets/mlg-ulb/creditcardfraud.
